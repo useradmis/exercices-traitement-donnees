@@ -1,0 +1,15 @@
+﻿id_menage;departement;commune;taille_menage;sexe_chef;age_chef;niveau_instruction_chef;revenu_mensuel;nb_vehicules;date_entretien;id_enqueteur
+M001;Dakar;Dakar-Plateau;4;M;45;4;650000;1;2026-03-02;ENQ01
+M002;Dakar;Parcelles Assainies;6;F;52;1;180000;0;2026-03-02;ENQ01
+M003;Dakar;Grand Yoff;5;M;150;3;300000;0;2026-03-03;ENQ02
+M004;Dakar;Médina;3;F;34;2;;0;2026-03-03;ENQ02
+M005;Dakar;Ouakam;;M;61;0;220000;1;2026-03-04;ENQ03
+M006;Pikine;Thiaroye;8;M;49;1;150000;0;2026-03-04;ENQ03
+M007;Pikine;Guinaw Rails;7;F;38;2;120000;0;2026-03-05;ENQ01
+M007;Pikine;Guinaw Rails;7;F;38;2;120000;0;2026-03-05;ENQ01
+M008;Guédiawaye;Golf Sud;5;M;56;3;400000;1;2026-03-05;ENQ02
+M009;Rufisque;Rufisque Est;6;M;47;1;999999;-1;2026-03-06;ENQ03
+M010;DAKAR;Yoff;2;F;29;4;500000;1;2026-03-06;ENQ01
+M011;Dakar;dakar plateau;4;M;40;7;350000;2;2026-13-05;ENQ03
+M010;Dakar;Yoff;3;F;29;4;50000;1;2026-03-07;ENQ02
+M012;Keur Massar;Keur Massar;5;F;44;2;4800000;0;2027-03-08;ENQ01

@@ -1,0 +1,639 @@
+---
+title: "Cas pratique intégrateur 1: Traitement des données d'une enquête auprès des ménages à Dakar"
+author: "Bator Ndiaye et Safiatou Diouf, AS3"
+output: html_document
+---
+
+# Fiche pédagogique
+
+- **Public cible** : étudiants de 3ᵉ année Analyste Statisticien, ENSAE Dakar
+- **Chapitres concernés** : Fondements du traitement des données d'enquête ; Structuration et préparation des données
+- **Durée indicative** : 6 à 8 heures
+- **Outils** : Excel, R ou Python
+- **Fichiers fournis** : `menages.csv`, `individus.csv` et `depenses.csv`
+- **Nature des données** : données fictives à vocation pédagogique
+
+# Contexte général
+ 
+Dans le cadre d'une étude sur les conditions de vie et les pratiques de mobilité des ménages de Dakar, une enquête pilote a été réalisée auprès de 12 ménages. Les données collectées ont été exportées dans trois fichiers CSV :
+
+- `menages.csv` : caractéristiques générales des ménages ;
+- `individus.csv` : caractéristiques des personnes appartenant aux ménages ;
+- `depenses.csv` : dépenses déclarées par les ménages selon différents postes.
+
+Avant toute analyse statistique, l'équipe chargée du traitement doit vérifier la cohérence des fichiers, documenter les variables et organiser les données pour permettre leur exploitation.
+
+**Votre mission** : préparer ces données en vue de leur analyse, justifier les choix méthodologiques et documenter les opérations réalisées.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE,
+	results = "asis"
+)
+options(knitr.kable.NA = "")
+
+# Lecture des trois fichiers (séparateur ";", encodage UTF-8 avec BOM)
+lire <- function(f) {
+  read.csv2(f, fileEncoding = "UTF-8-BOM", stringsAsFactors = FALSE, na.strings = "")
+}
+menages   <- lire("menages.csv")
+individus <- lire("individus.csv")
+depenses  <- lire("depenses.csv")
+
+# Une ligne par ménage (première occurrence en cas de doublon d'identifiant)
+men <- menages[!duplicated(menages$id_menage), ]
+
+# Fonctions d'affichage
+ecrire <- function(x) cat(x, "\n\n")
+tab <- function(df) { print(knitr::kable(df, row.names = FALSE)); cat("\n\n") }
+bloc <- function(x) { cat("```\n"); print(x); cat("```\n\n") }
+
+# Repère les lignes qui violent une règle : retourne un tableau d'anomalies
+signaler <- function(df, id, cond, variable, probleme) {
+  i <- which(cond)
+  if (length(i) == 0) return(NULL)
+  data.frame(ligne = i, id = df[[id]][i], variable = variable,
+             valeur = as.character(df[[variable]][i]), probleme = probleme,
+             stringsAsFactors = FALSE)
+}
+
+# Construit un tableau à partir de valeurs écrites ligne par ligne
+mk <- function(cols, ...) {
+  m <- matrix(c(...), ncol = length(cols), byrow = TRUE)
+  colnames(m) <- cols
+  as.data.frame(m, stringsAsFactors = FALSE)
+}
+```
+
+# Partie I : Fondements du traitement des données d'enquête
+
+## Exercice 1 : Compréhension du dispositif d'enquête
+
+1. Quel est l'objectif général de cette enquête ? Proposez deux objectifs spécifiques.
+2. Quelle est la population cible de l'étude ? Peut-on assimiler cette population aux 12 ménages enquêtés ? Justifiez votre réponse.
+3. Identifiez l'unité d'échantillonnage, l'unité de collecte et les unités statistiques étudiées.
+4. Quelle est la différence entre une enquête par sondage et un recensement ? Dans quelle catégorie classeriez-vous cette enquête pilote ?
+5. La réalisation d'une enquête auprès de 12 ménages permet-elle de produire des estimations représentatives de l'ensemble de Dakar ? Discutez les conditions nécessaires.
+
+```{r ex1, echo=FALSE}
+
+```
+
+## Exercice 2 : Identification et classification des variables
+
+À partir des trois fichiers fournis :
+
+1. Identifiez les principales variables présentes dans chaque fichier.
+2. Classez les variables selon leur nature (qualitative nominale, qualitative ordinale, quantitative discrète, quantitative continue).
+3. Pour chaque fichier, distinguez les variables d'identification des variables d'analyse.
+4. Proposez une classification des variables selon leur rôle dans l'analyse statistique.
+5. Expliquez pourquoi un identifiant comme `id_menage` ne doit pas être traité comme une variable quantitative ordinaire.
+
+```{r ex2, echo=FALSE}
+
+```
+
+## Exercice 3 : Chaîne de production statistique et qualité
+
+1. Présentez les principales étapes séparant la collecte des données de la production des résultats statistiques.
+2. Distinguez la saisie, le contrôle, le nettoyage, la structuration et l'exploitation des données.
+3. Expliquez les notions suivantes : exactitude, cohérence, exhaustivité, comparabilité et actualité.
+4. Proposez deux contrôles permettant d'améliorer la qualité des données de cette enquête.
+
+```{r ex3, echo=FALSE}
+
+```
+
+# Partie II : Structuration et préparation des données
+
+## Exercice 4 : Construction du dictionnaire des variables
+
+À partir des fichiers bruts :
+
+1. Construisez un dictionnaire des variables pour chacun des trois fichiers.
+2. Pour chaque variable, précisez son nom, sa définition, son type, ses modalités éventuelles, son unité de mesure et les contrôles à appliquer.
+3. Identifiez les variables qui devraient être obligatoires et celles pour lesquelles une valeur manquante pourrait être acceptable.
+4. Proposez une convention de représentation des valeurs manquantes.
+5. Expliquez l'intérêt d'un dictionnaire des variables dans un dispositif de production statistique.
+
+```{r ex4, echo=FALSE}
+ecrire("**1. Dictionnaire des variables par fichier**")
+col5 <- c("Nom technique", "Libellé", "Type", "Format", "Unité de mesure")
+
+ecrire("*Ménages*")
+tab(mk(col5,
+  "id_menage", "Identifiant du ménage", "Identifiant", "Alpha numérique", "Code unique",
+  "departement", "Département de résidence", "Qualitative nominale", "character", "Nomenclature géographique",
+  "commune", "Commune de résidence", "Qualitative nominale", "character", "Nomenclature géographique",
+  "taille_menage", "Taille du ménage", "Quantitative discrète", "integer", "Personnes",
+  "sexe_chef", "Sexe du chef de ménage", "Qualitative nominale", "code", "Sans objet",
+  "age_chef", "Âge du chef de ménage", "Quantitative discrète", "integer", "Années révolues",
+  "niveau_instruction_chef", "Niveau d'instruction du chef", "Qualitative ordinale", "code", "Sans objet",
+  "revenu_mensuel", "Revenu mensuel déclaré", "Quantitative continue", "float", "FCFA par mois",
+  "nb_vehicules", "Nombre de véhicules", "Quantitative discrète", "integer", "Véhicules",
+  "date_entretien", "Date de l'entretien", "Date", "AAAA-MM-JJ", "Date",
+  "id_enqueteur", "Identifiant de l'enquêteur", "Identifiant", "Alpha numérique", "Code unique par enquêteur"))
+
+ecrire("*Individus*")
+tab(mk(col5,
+  "id_individu", "Identifiant de l'individu", "Identifiant", "Alpha numérique", "Code unique",
+  "id_menage", "Identifiant du ménage", "Identifiant", "Alpha numérique", "Code du ménage",
+  "lien_parente", "Lien de parenté avec le chef", "Qualitative nominale", "Texte", "Sans objet",
+  "sexe", "Sexe", "Qualitative nominale", "code", "Sans objet",
+  "age", "Âge", "Quantitative discrète", "integer", "Années révolues",
+  "niveau_instruction", "Niveau d'instruction", "Qualitative ordinale", "Entier (code)", "Sans objet",
+  "occupation", "Occupation principale", "Qualitative nominale", "Texte", "Sans objet",
+  "modes_transport", "Modes de transport utilisés", "Qualitative nominale", "Texte ; valeurs séparées par |", "Sans objet"))
+
+ecrire("*Dépenses*")
+tab(mk(col5,
+  "id_depense", "Identifiant de la dépense", "Identifiant", "Alpha numérique", "Code unique",
+  "id_menage", "Identifiant du ménage", "Identifiant", "Alpha numérique", "Code du ménage",
+  "poste", "Poste de dépense", "Qualitative nominale", "Texte", "Sans objet",
+  "montant", "Montant de la dépense", "Quantitative continue", "Integer", "FCFA",
+  "periode_reference", "Période de référence", "Qualitative nominale", "Texte", "Sans objet"))
+
+ecrire("**2. Définition, modalités, unité et contrôles à appliquer**")
+col6 <- c("Nom de la variable", "Définition", "Type", "Modalités éventuelles", "Unité de mesure", "Contrôles à appliquer")
+niv <- "0 = aucun ; 1 = primaire ; 2 = moyen ; 3 = secondaire ; 4 = supérieur (à confirmer)"
+
+ecrire("*Ménages*")
+tab(mk(col6,
+  "id_menage", "Code unique attribué à chaque ménage enquêté", "Identifiant", "Sans objet", "Code unique", "Unique dans le fichier ; format M + numéro",
+  "departement", "Département où se situe le ménage", "Qualitative nominale", "Selon la nomenclature géographique en vigueur", "Nomenclature géographique", "Valeur présente dans la nomenclature",
+  "commune", "Commune où se situe le ménage", "Qualitative nominale", "Selon la nomenclature géographique en vigueur", "Nomenclature géographique", "Valeur présente dans la nomenclature ; cohérente avec le département",
+  "taille_menage", "Nombre de personnes qui composent le ménage", "Quantitative discrète", "Sans objet", "Personnes", "≥ 1 ; égale au nombre de lignes du ménage dans individus.csv",
+  "sexe_chef", "Sexe de la personne désignée comme chef de ménage", "Qualitative nominale", "M = masculin ; F = féminin", "Sans objet", "Valeur dans {M, F} ; cohérent avec le sexe du chef dans individus.csv",
+  "age_chef", "Âge du chef de ménage à la date de l'entretien", "Quantitative discrète", "Sans objet", "Années révolues", "Plage plausible (15 à 110) ; égal à l'âge du chef dans individus.csv",
+  "niveau_instruction_chef", "Plus haut niveau d'études atteint par le chef de ménage", "Qualitative ordinale", niv, "Sans objet", "Valeur dans la liste des codes ; cohérent avec individus.csv",
+  "revenu_mensuel", "Revenu total mensuel déclaré par le ménage", "Quantitative continue", "Sans objet", "FCFA par mois", "≥ 0 ; repérer les valeurs extrêmes",
+  "nb_vehicules", "Nombre de véhicules possédés par le ménage", "Quantitative discrète", "Sans objet", "Véhicules", "≥ 0 ; valeur plausible",
+  "date_entretien", "Jour où l'entretien a eu lieu", "Date", "Sans objet", "Date", "Date valide, comprise dans la période de collecte",
+  "id_enqueteur", "Code de l'enquêteur qui a réalisé l'entretien", "Identifiant", "Sans objet", "Code unique par enquêteur", "Code présent dans la liste des enquêteurs"))
+
+ecrire("*Individus*")
+tab(mk(col6,
+  "id_individu", "Code unique attribué à chaque personne", "Identifiant", "Sans objet", "Code unique", "Unique dans le fichier",
+  "id_menage", "Code du ménage auquel appartient la personne", "Identifiant (clé étrangère)", "Sans objet", "Code du ménage", "Doit exister dans menages.csv",
+  "lien_parente", "Relation de la personne avec le chef de ménage", "Qualitative nominale", "Chef ; conjoint ; enfant ; autre parent ; non-apparenté (à confirmer)", "Sans objet", "Un seul « Chef » par ménage ; valeur dans la liste",
+  "sexe", "Sexe de la personne", "Qualitative nominale", "M = masculin ; F = féminin", "Sans objet", "Valeur dans {M, F}",
+  "age", "Âge de la personne à la date de l'entretien", "Quantitative discrète", "Sans objet", "Années révolues", "Plage plausible (0 à 110) ; âge du chef = age_chef de menages.csv",
+  "niveau_instruction", "Plus haut niveau d'études atteint par la personne", "Qualitative ordinale", niv, "Sans objet", "Valeur dans la liste ; cohérent avec l'âge",
+  "occupation", "Situation d'activité principale de la personne (ex. salarié)", "Qualitative nominale", "Salarié ; indépendant ; élève ou étudiant ; sans emploi ; autre (à confirmer)", "Sans objet", "Valeur dans la liste ; cohérente avec l'âge",
+  "modes_transport", "Modes de transport habituellement utilisés par la personne ; plusieurs réponses possibles", "Qualitative nominale à réponses multiples", "BRT ; Voiture ; Clando ; AFTU ; autres (à confirmer)", "Sans objet", "Chaque valeur doit appartenir à la liste ; pas d'espace autour de |"))
+
+ecrire("*Dépenses*")
+tab(mk(col6,
+  "id_depense", "Code unique attribué à chaque dépense enregistrée", "Identifiant", "Sans objet", "Code unique", "Unique dans le fichier",
+  "id_menage", "Code du ménage qui a déclaré la dépense", "Identifiant (clé étrangère)", "Sans objet", "Code du ménage", "Doit exister dans menages.csv",
+  "poste", "Catégorie de la dépense (ex. alimentation, logement)", "Qualitative nominale", "Alimentation ; Logement ; Transport ; Santé ; Éducation ; Autre (à confirmer)", "Sans objet", "Valeur dans la liste",
+  "montant", "Somme dépensée pour le poste, sur la période de référence", "Quantitative continue", "Sans objet", "FCFA (par période de référence)", "≥ 0 ; à lire avec periode_reference ; repérer les valeurs extrêmes",
+  "periode_reference", "Période à laquelle se rapporte le montant", "Qualitative nominale", "mensuel ; annuel (à confirmer)", "Sans objet", "Valeur dans la liste ; 100 000 FCFA par mois ≠ 100 000 FCFA par an"))
+
+ecrire(r"---(
+**3. Variables obligatoires et valeurs manquantes acceptables**
+
+*menages*
+
+- **Obligatoires** : id_menage, departement, commune, taille_menage, sexe_chef, age_chef, nb_vehicules, date_entretien, id_enqueteur
+- **Valeur manquante acceptable** : niveau_instruction_chef, revenu_mensuel
+
+*individus*
+
+- **Obligatoires** : id_individu, id_menage, lien_parente, sexe, age
+- **Valeur manquante acceptable** : niveau_instruction, occupation, modes_transport
+
+*depenses*
+
+- **Obligatoires** : id_depense, id_menage, poste, montant, periode_reference
+- **Valeur manquante acceptable** : aucune
+
+**4. Convention de représentation des valeurs manquantes**
+
+99 peut représenter par convention les valeurs manquantes. Pour distinguer les causes, on peut utiliser : **99** = non-réponse (refus), **98** = ne sait pas, **97** = non applicable. Pour les variables quantitatives (comme le revenu), on laisse la cellule **vide** plutôt qu'un code numérique, afin de ne pas fausser les moyennes. On ne code jamais un manquant par 0.
+
+**5. Intérêt d'un dictionnaire des variables**
+
+Il décrit précisément chaque variable de la base : ce qu'elle signifie, comment elle est codée et mesurée, quelles valeurs elle peut prendre et comment la contrôler. Il constitue la référence commune de toute l'équipe (statisticiens, informaticiens, responsables d'enquête, utilisateurs) : il évite les ambiguïtés, aligne la collecte, la saisie et la base, fixe les contrôles de qualité, guide le choix des méthodes d'analyse et accompagne la diffusion des données.
+)---")
+```
+
+## Exercice 5 : Organisation relationnelle des données
+
+1. Proposez un schéma relationnel permettant de représenter les ménages, les individus et les dépenses.
+2. Identifiez, dans chaque fichier, la clé primaire potentielle.
+3. Identifiez les clés étrangères et expliquez leur rôle.
+4. Représentez graphiquement les relations entre les trois tables.
+5. Quelles contraintes d'intégrité doivent être respectées pour garantir la cohérence entre les tables ?
+6. Discutez les avantages et les limites d'une organisation dans un seul fichier par rapport à une organisation en plusieurs tables reliées.
+
+```{r ex5, echo=FALSE}
+ecrire(r"---(
+**1. Schéma relationnel** (clé primaire en gras, clé étrangère précédée de #)
+
+- MENAGES (**id_menage**, departement, commune, taille_menage, sexe_chef, age_chef, niveau_instruction_chef, revenu_mensuel, nb_vehicules, date_entretien, id_enqueteur)
+- INDIVIDUS (**id_individu**, #id_menage, lien_parente, sexe, age, niveau_instruction, occupation, modes_transport)
+- DEPENSES (**id_depense**, #id_menage, poste, montant, periode_reference)
+
+**2. Clés primaires**
+
+menages : `id_menage` ; individus : `id_individu` ; depenses : `id_depense`.
+
+**3. Clés étrangères et rôle**
+
+Pour les tables individus et depenses, la clé étrangère est `id_menage`. Elle relie chaque personne et chaque dépense à son ménage, permet de reconstituer l'information par jointure et empêche l'existence de lignes orphelines.
+
+**4. Représentation graphique des relations**
+
+Un ménage compte au moins un individu (1..n) et déclare zéro, une ou plusieurs dépenses (0..n).
+
+![Schéma relationnel entre les trois tables](schema_relationnel.png){width=80%}
+
+**5. Contraintes d'intégrité**
+
+- **Intégrité d'entité** : `id_menage`, `id_individu` et `id_depense` sont uniques et jamais vides.
+- **Intégrité référentielle** : toute valeur de `id_menage` dans individus et depenses existe dans menages.
+- **Intégrité de domaine** : chaque variable respecte son type, sa plage et sa liste de modalités.
+- **Cohérence entre tables** : `taille_menage` est égale au nombre d'individus du ménage ; un seul « Chef » par ménage, dont le sexe et l'âge concordent avec `sexe_chef` et `age_chef`.
+
+**6. Un seul fichier ou plusieurs tables reliées**
+
+Lorsqu'on conçoit une base de données, la tentation est grande de tout regrouper dans une seule grande table : c'est simple en apparence et tout se trouve au même endroit. Pourtant, les concepteurs préfèrent séparer l'information en plusieurs tables reliées entre elles (**normalisation**), pour quatre raisons :
+
+- **Éviter la répétition inutile des données** : une information (par exemple le nom d'un auteur) n'est écrite qu'une seule fois (élimination de la redondance).
+- **Simplifier la mise à jour** : une seule modification suffit, dans la table concernée, au lieu de dizaines de lignes à corriger avec le risque d'en oublier.
+- **Garantir l'intégrité et la cohérence** : il devient impossible d'enregistrer, par exemple, une dépense rattachée à un ménage qui n'existe pas.
+- **Améliorer la performance** : on peut indexer chaque table et ne consulter que les données nécessaires grâce aux jointures (JOIN).
+
+*Avantages et limites d'un fichier unique* : il est simple, facile à lire et sans jointure, mais il répète les informations du ménage sur chaque ligne, multiplie les cellules vides, mélange deux relations un-à-plusieurs (individus et dépenses, ce qui fausse les comptages en cas de croisement) et devient lourd à mettre à jour. *Limites des tables reliées* : il faut maîtriser les clés et les jointures, et une jointure mal écrite peut dupliquer ou perdre des lignes.
+
+**En résumé** : utiliser plusieurs tables revient à ranger ses documents dans des classeurs distincts, soigneusement étiquetés, plutôt que de les entasser dans une seule boîte : l'information est plus économe, plus facile à corriger, plus fiable et plus rapide à retrouver.
+)---")
+```
+
+## Exercice 6 : Questions à réponses multiples
+
+Le questionnaire comprend une question sur les modes de transport utilisés par les membres des ménages.
+
+1. Comment représenteriez-vous les réponses multiples dans une base de données ?
+2. Comparez une représentation en colonnes binaires, une représentation en format long et une représentation par champ contenant plusieurs modalités.
+3. Quelle structure recommanderiez-vous pour une analyse statistique portant sur la fréquence d'utilisation de chaque mode de transport ? Justifiez votre choix.
+4. Quels contrôles faudrait-il prévoir pour vérifier la validité des réponses à cette question ?
+
+```{r ex6, echo=FALSE}
+ecrire(r"---(
+**1. Représentation des réponses multiples**
+
+*Si les réponses sont des modalités à cocher (cases ou cercles)*
+
+- Chaque modalité devient une **variable binaire** (1 = cochée, 0 = non cochée), plutôt qu'une variable qualitative nominale unique. Ce type de variable est qualitative dichotomique.
+- Exemple : `transport_brt`, `transport_voiture`, `transport_clando` valent chacune 0 ou 1.
+- Une autre solution est une table séparée avec une ligne par individu et par modalité cochée (par exemple INDIVIDUS_TRANSPORT).
+
+*Sinon, si les réponses sont libres (questions ouvertes)*
+
+- On conserve la réponse textuelle originale, si la confidentialité le permet et si la traçabilité l'exige.
+- On construit une **nomenclature** (une liste de catégories) à partir d'un échantillon de réponses, avec des règles de classement claires.
+- On code chaque réponse selon cette nomenclature, par exemple : 1 = coût élevé, 2 = attente trop longue, 3 = véhicule surchargé, 4 = manque de sécurité, 5 = absence de desserte.
+- Comme une personne peut donner plusieurs réponses, on les représente par plusieurs variables codées (`difficulte_1`, `difficulte_2`, `difficulte_3`), par une variable binaire par catégorie de la nomenclature, ou par une table séparée avec une ligne par réponse (`id_individu`, `code_difficulte`), qui est la solution la plus propre.
+- On examine les cas ambigus et on contrôle la cohérence du codage.
+
+**2. Comparaison des trois représentations**
+
+*Colonnes binaires* (une variable 0/1 par modalité)
+
+- Avantages : calcul immédiat des fréquences (la moyenne d'une colonne donne la proportion d'utilisateurs) ; compatible avec tous les logiciels et les modèles statistiques ; une seule ligne par individu.
+- Limites : beaucoup de colonnes si la liste des modalités est longue ; ajouter une modalité oblige à modifier la structure ; beaucoup de zéros.
+
+*Format long* (une ligne par individu et par modalité)
+
+- Avantages : structure relationnelle propre (table INDIVIDUS_TRANSPORT reliée à INDIVIDUS par `id_individu`) ; nombre de modalités illimité, sans changer la structure ; permet d'ajouter des informations par mode (fréquence d'usage, motif).
+- Limites : plusieurs lignes par individu ; nécessite une jointure ou un pivot pour obtenir une ligne par individu ; un individu sans déplacement n'a aucune ligne, donc il faut garder la table INDIVIDUS comme référence.
+
+*Champ à plusieurs modalités* (une cellule contenant BRT|Voiture)
+
+- Avantages : saisie rapide et fichier compact ; une seule colonne.
+- Limites : difficile à compter et à analyser sans découpage préalable ; sensible aux erreurs de saisie (séparateur, espaces, casse) ; impossible d'appliquer des contraintes d'intégrité sur chaque valeur ; ne respecte pas la première forme normale (une seule valeur par cellule).
+
+**3. Structure recommandée**
+
+Le **format long**, car il est la structure la plus propre et la plus durable : pas de redondance, modalités extensibles, contraintes d'intégrité applicables. Il permet de renseigner, pour chaque mode, une variable de fréquence d'usage (par exemple jours par semaine), ce qu'une colonne binaire ne permet pas. Les colonnes binaires s'en déduisent par pivot pour calculer les fréquences.
+
+**4. Contrôles à prévoir**
+
+- Tout `id_individu` de la table de transport existe dans INDIVIDUS.
+- Chaque modalité appartient à la liste officielle, sans variante d'écriture, et un seul séparateur sans espace.
+- Pas de doublon pour un même couple (`id_individu`, mode).
+- Si la question s'applique à tous, au moins un mode ou un code de non-réponse (97, 98, 99) est présent.
+- Une modalité exclusive comme « aucun déplacement » ne peut pas être cochée avec un autre mode.
+- Cohérence avec l'âge (par exemple, un enfant très jeune ne conduit pas une voiture).
+- Comparaison des fréquences obtenues avec des ordres de grandeur connus pour détecter les anomalies.
+
+**Illustration sur les données : passage du champ multiple au format long, puis aux colonnes binaires**
+)---")
+
+# Format long : une ligne par individu et par mode
+mt <- individus[!is.na(individus$modes_transport), c("id_individu", "modes_transport")]
+liste <- strsplit(mt$modes_transport, "|", fixed = TRUE)
+long <- data.frame(id_individu = rep(mt$id_individu, lengths(liste)),
+                   mode = unlist(liste), stringsAsFactors = FALSE)
+ecrire("*Format long (extrait)*")
+tab(head(long, 8))
+
+# Fréquence d'utilisation de chaque mode (dénominateur : nombre de lignes d'individus)
+freq <- as.data.frame(table(long$mode), stringsAsFactors = FALSE)
+names(freq) <- c("mode", "nb_utilisateurs")
+freq$proportion_individus <- round(freq$nb_utilisateurs / nrow(individus), 3)
+ecrire("*Fréquence d'utilisation de chaque mode*")
+tab(freq[order(-freq$nb_utilisateurs), ])
+
+# Colonnes binaires
+modes <- sort(unique(long$mode))
+bin <- mt[, "id_individu", drop = FALSE]
+for (m in modes) bin[[paste0("transport_", tolower(m))]] <- as.integer(sapply(liste, function(x) m %in% x))
+ecrire("*Colonnes binaires (extrait)*")
+tab(head(bin, 6))
+
+# Contrôle : « Aucun » combiné avec un autre mode
+ecrire("*Contrôle : « Aucun » déclaré avec un autre mode*")
+tab(mt[sapply(liste, function(x) "Aucun" %in% x && length(x) > 1), ])
+```
+
+# Partie III : Diagnostic et contrôle de la qualité des données
+
+**Consigne générale** : les fichiers contiennent des données brutes issues d'une enquête fictive. Il faut effectuer les contrôles nécessaires, présenter les constats et proposer un traitement justifié pour chaque problème rencontré. Aucune valeur n'est modifiée sans pouvoir expliquer la décision prise.
+
+## Exercice 7 : Contrôle du fichier des ménages
+
+À partir de `menages.csv` :
+
+1. Combien de lignes et de ménages distincts le fichier contient-il ?
+2. Vérifiez l'unicité de l'identifiant `id_menage`. Que constatez-vous ?
+3. Vérifiez la présence de valeurs manquantes dans les variables.
+4. Identifiez les valeurs qui vous semblent inhabituelles ou incompatibles avec la définition des variables.
+5. Proposez une démarche pour déterminer si les problèmes détectés proviennent d'une erreur de saisie, d'une erreur de collecte ou d'un problème de structuration.
+6. Pour chaque problème constaté, proposez une solution et indiquez les informations complémentaires dont vous auriez besoin avant d'appliquer une correction.
+
+```{r ex7, echo=FALSE}
+# 1. Lignes et ménages distincts
+ecrire("**1. Lignes et ménages distincts**")
+ecrire(paste0("Le fichier contient **", nrow(menages), "** lignes pour **",
+              length(unique(menages$id_menage)), "** ménages distincts."))
+
+# 2. Unicité de id_menage
+ecrire("**2. Unicité de `id_menage`**")
+dup_ids <- menages$id_menage[duplicated(menages$id_menage)]
+ecrire(paste0("Identifiants dupliqués : ", paste(unique(dup_ids), collapse = ", "), "."))
+tab(menages[menages$id_menage %in% dup_ids, ])
+ecrire(r"---(
+Constat : **M007** apparaît deux fois avec des valeurs identiques (doublon exact) ; **M010** apparaît deux fois avec des valeurs **différentes** (taille, revenu, enquêteur, date, casse du département). Il peut s'agir d'une erreur de saisie ou de deux ménages distincts sous le même identifiant.
+)---")
+
+# 3. Valeurs manquantes
+ecrire("**3. Valeurs manquantes**")
+tab(data.frame(variable = names(menages), nb_manquantes = colSums(is.na(menages))))
+ecrire("Constat : `revenu_mensuel` est manquant pour M004 et `taille_menage` pour M005.")
+
+# 4. Valeurs inhabituelles ou incompatibles
+ecrire("**4. Valeurs inhabituelles ou incompatibles**")
+dt <- as.Date(menages$date_entretien, format = "%Y-%m-%d")
+med_rev <- median(menages$revenu_mensuel[menages$revenu_mensuel != 999999], na.rm = TRUE)
+anom_m <- do.call(rbind, list(
+  signaler(menages, "id_menage", menages$age_chef < 15 | menages$age_chef > 110, "age_chef", "âge hors plage (15 à 110)"),
+  signaler(menages, "id_menage", !is.na(menages$niveau_instruction_chef) & !(menages$niveau_instruction_chef %in% 0:4), "niveau_instruction_chef", "code hors liste (0 à 4)"),
+  signaler(menages, "id_menage", menages$nb_vehicules < 0, "nb_vehicules", "valeur négative impossible"),
+  signaler(menages, "id_menage", menages$revenu_mensuel == 999999, "revenu_mensuel", "code probable de valeur manquante"),
+  signaler(menages, "id_menage", menages$revenu_mensuel > 10 * med_rev, "revenu_mensuel", "valeur extrême (zéro en trop ?)"),
+  signaler(menages, "id_menage", is.na(dt) & !is.na(menages$date_entretien), "date_entretien", "date invalide"),
+  signaler(menages, "id_menage", !is.na(dt) & format(dt, "%Y") != "2026", "date_entretien", "date hors période de collecte"),
+  signaler(menages, "id_menage", menages$departement == toupper(menages$departement), "departement", "casse incohérente"),
+  signaler(menages, "id_menage", menages$commune == tolower(menages$commune), "commune", "casse incohérente")
+))
+tab(anom_m)
+
+# 5. Démarche de diagnostic
+ecrire(r"---(
+**5. Démarche pour identifier l'origine des problèmes**
+
+1. **Comparer au questionnaire papier ou à la source de saisie** : si la valeur du questionnaire est correcte mais que celle du fichier est fausse, il s'agit d'une **erreur de saisie** (par exemple un zéro en trop, une faute de frappe).
+2. **Si le questionnaire contient déjà la valeur anormale** (âge de 150 ans, taille manquante), il s'agit d'une **erreur de collecte** : contacter l'enquêteur (`id_enqueteur`) ou refaire une visite terrain.
+3. **Si les valeurs sont justes mais mal organisées** (identifiant dupliqué pour deux ménages différents, casse différente), il s'agit d'un **problème de structuration** : revoir les règles de codage et d'identification.
+4. **Rechercher des regroupements** : un même enquêteur ou une même date concentrent-ils les erreurs ? Cela oriente vers un problème de collecte.
+)---")
+
+# 6. Solutions et informations complémentaires
+ecrire("**6. Solutions proposées et informations complémentaires nécessaires**")
+tab(mk(c("Problème", "Solution proposée", "Information complémentaire nécessaire"),
+  "M007 dupliqué (lignes identiques)", "Supprimer une des deux lignes", "Confirmation qu'il s'agit bien d'un doublon de saisie",
+  "M010 dupliqué (valeurs différentes)", "Déterminer le bon enregistrement ou attribuer un nouvel identifiant au second ménage", "Questionnaires papier des deux entretiens ; avis de l'enquêteur",
+  "M003 : age_chef = 150", "Corriger après vérification (51 ans dans individus.csv)", "Questionnaire papier ; âge du chef dans individus.csv",
+  "M004 : revenu manquant", "Laisser vide ou coder comme manquant (ne pas imputer 0)", "Savoir s'il s'agit d'un refus ou d'un oubli",
+  "M005 : taille manquante", "Renseigner à 4 (nombre d'individus observés) avec un indicateur d'imputation", "Confirmation par le questionnaire",
+  "M009 : revenu = 999999", "Recoder en valeur manquante", "Convention de codage des manquants de l'équipe",
+  "M009 : nb_vehicules = -1", "Corriger après vérification (0 ou 1 ?) ou coder comme manquant", "Questionnaire papier",
+  "M011 : niveau_instruction_chef = 7", "Corriger selon la liste des codes ou coder comme manquant", "Liste officielle des codes ; questionnaire",
+  "M011 : date_entretien = 2026-13-05", "Corriger la date (mois impossible)", "Carnet de l'enquêteur ; dates des entretiens voisins",
+  "M012 : revenu = 4 800 000 et date 2027-03-08", "Vérifier le revenu (480 000 ?) et corriger la date", "Questionnaire papier ; période de collecte",
+  "Casse (DAKAR, dakar plateau)", "Normaliser selon la nomenclature géographique", "Nomenclature officielle des départements et communes"))
+```
+
+## Exercice 8 : Contrôle du fichier des individus
+
+À partir de `individus.csv` :
+
+1. Vérifiez l'unicité de `id_individu`.
+2. Contrôlez la validité des références à `id_menage`.
+3. Examinez la distribution de l'âge et identifiez les observations qui nécessitent une vérification.
+4. Comparez le nombre d'individus observés par ménage avec la taille déclarée dans le fichier des ménages.
+5. Comment traiteriez-vous les situations dans lesquelles ces deux informations ne concordent pas ?
+6. Quelles précautions faut-il prendre avant de supprimer une observation ou de modifier une valeur ?
+
+```{r ex8, echo=FALSE}
+# 1. Unicité de id_individu
+
+# 2. Références à id_menage
+
+# 3. Distribution de l'âge
+
+# 4. Individus observés et taille déclarée
+ecrire("**4. Individus observés et taille déclarée**")
+obs <- as.data.frame(table(individus$id_menage), stringsAsFactors = FALSE)
+names(obs) <- c("id_menage", "nb_observes")
+cmp <- merge(men[, c("id_menage", "taille_menage")], obs, by = "id_menage", all.x = TRUE)
+cmp$nb_observes[is.na(cmp$nb_observes)] <- 0
+cmp$ecart <- cmp$taille_menage - cmp$nb_observes
+cmp$statut <- ifelse(is.na(cmp$ecart), "taille manquante", ifelse(cmp$ecart == 0, "concordant", "discordant"))
+tab(cmp)
+ecrire("*(Pour M010, on a gardé la première ligne de menages.csv, qui indique une taille de 2.)*")
+
+ecrire(r"---(
+- **Concordants** : M001, M003, M004, M006, M007, M009, M011 (7 ménages sur 12).
+- **Discordants** :
+    - **M002** : 6 déclarés pour 5 observés (un individu manquant).
+    - **M008** : 5 déclarés pour 6 observés. La ligne en trop est I042 (« Autre », sexe manquant, 33 ans, domestique), peut-être un non-membre du ménage.
+    - **M010** : 2 déclarés pour 3 observés. Une des deux lignes de M010 dans menages.csv indique une taille de 3, ce qui concorde.
+    - **M005** : taille manquante, 4 individus observés.
+    - **M012** : 5 déclarés pour 0 observé.
+
+**5. Traitement des discordances**
+
+1. Ne jamais aligner mécaniquement une information sur l'autre : chercher d'abord la cause à la source (questionnaire, enquêteur) ;
+2. Individu non saisi (M002, M012) : retrouver et saisir les membres manquants, ou relancer la saisie ;
+3. Taille erronée (M010) : corriger `taille_menage` dans menages.csv, une fois le bon enregistrement du ménage déterminé ;
+4. Taille manquante (M005) : la renseigner à 4 après confirmation, avec un indicateur d'imputation ;
+5. Personne hors du ménage (I042 pour M008) : vérifier la définition du membre du ménage (résident, domestique, visiteur) et la retirer ou la conserver selon cette définition ;
+6. Cas non résolu : conserver les deux valeurs, ajouter un indicateur de discordance et exclure le ménage des analyses qui dépendent des deux tables.
+
+**6. Précautions avant de supprimer ou de modifier**
+
+1. Sauvegarder l'original en lecture seule, et travailler sur une nouvelle version ;
+2. Ne rien supprimer automatiquement : vérifier à la source si l'aberration est une erreur ou une valeur réelle ;
+3. Préférer corriger ou coder comme manquant plutôt que supprimer, quand la vraie valeur est introuvable ;
+4. Mesurer l'impact : supprimer un individu modifie la taille du ménage et les effectifs de toutes les analyses ;
+5. Contrôler les liens entre tables : une modification d'identifiant ou une suppression doit rester cohérente avec les autres fichiers ;
+6. Ne jamais réutiliser un identifiant supprimé ou modifié ;
+7. Journaliser chaque changement : date, auteur, identifiant, variable, ancienne et nouvelle valeur, motif, source de la décision ;
+8. Faire valider les décisions importantes par le responsable de l'enquête, puis relancer les contrôles.
+)---")
+```
+
+## Exercice 9 : Contrôle du fichier des dépenses
+
+À partir de `depenses.csv` :
+
+1. Vérifiez l'unicité de `id_depense`.
+2. Contrôlez les références des dépenses aux ménages.
+3. Examinez la validité des montants et des postes de dépenses.
+4. Proposez des contrôles de cohérence entre les postes de dépenses et les caractéristiques des ménages.
+5. Expliquez pourquoi l'absence d'un poste de dépense dans le fichier ne signifie pas nécessairement que le ménage n'a rien dépensé pour ce poste.
+6. Décrivez la procédure à suivre pour résoudre les problèmes détectés tout en conservant une trace des modifications.
+
+```{r ex9, echo=FALSE}
+# 1. Unicité de id_depense
+ecrire("**1. Unicité de `id_depense`**")
+dup_d <- depenses$id_depense[duplicated(depenses$id_depense)]
+ecrire(paste0("Identifiant dupliqué : ", paste(unique(dup_d), collapse = ", "), "."))
+tab(depenses[depenses$id_depense %in% dup_d, ])
+nums_d <- as.integer(sub("D", "", depenses$id_depense))
+ecrire(paste0("Identifiant absent de la séquence : D", sprintf("%03d", setdiff(seq_len(max(nums_d)), nums_d)), "."))
+ecrire("D015 est dupliqué pour deux ménages différents (M004 et M005) et D016 est absent : la ligne de M005 devrait porter D016 (à confirmer).")
+
+# 2. Références aux ménages
+ecrire("**2. Références aux ménages**")
+orph <- setdiff(unique(depenses$id_menage), menages$id_menage)
+ecrire(paste0("Références absentes de menages.csv : ", paste(orph, collapse = ", "), "."))
+tab(depenses[depenses$id_menage %in% orph, ])
+ecrire(r"---(
+- Nous détectons une incohérence : `id_menage` M020 figure dans depenses.csv alors qu'il n'existe pas dans menages.csv ;
+- Les références sont ambiguës car, dans menages.csv, les identifiants M007 et M010 sont dupliqués.
+)---")
+
+# 3. Montants et postes
+ecrire("**3. Validité des montants et des postes**")
+postes_ok <- c("Alimentation", "Logement", "Transport", "Carburant", "Éducation", "Santé", "Eau-Électricité", "Communication")
+cle <- depenses[, c("id_menage", "poste", "montant", "periode_reference")]
+dbl <- duplicated(cle) | duplicated(cle, fromLast = TRUE)
+anom_d <- do.call(rbind, list(
+  signaler(depenses, "id_depense", is.na(depenses$montant), "montant", "montant manquant"),
+  signaler(depenses, "id_depense", depenses$montant < 0, "montant", "montant négatif"),
+  signaler(depenses, "id_depense", depenses$montant == 0, "montant", "montant nul à confirmer"),
+  signaler(depenses, "id_depense", depenses$montant > 1000000, "montant", "valeur extrême"),
+  signaler(depenses, "id_depense", !(depenses$poste %in% postes_ok), "poste", "poste hors liste ou mal orthographié"),
+  signaler(depenses, "id_depense", dbl, "poste", "ligne en double (même ménage, poste, montant, période)"),
+  signaler(depenses, "id_depense", depenses$periode_reference != "mensuel", "periode_reference", "période annuelle : à convertir")
+))
+tab(anom_d)
+
+# 4. Cohérence avec les caractéristiques des ménages
+ecrire("**4. Contrôles de cohérence entre postes de dépenses et caractéristiques des ménages**")
+depenses$mens <- ifelse(depenses$periode_reference == "annuel", depenses$montant / 12, depenses$montant)
+tot <- aggregate(mens ~ id_menage, data = depenses, FUN = sum)
+cmp_d <- merge(men[, c("id_menage", "revenu_mensuel", "taille_menage", "nb_vehicules")], tot, by = "id_menage")
+cmp_d$ratio_depenses_revenu <- round(cmp_d$mens / cmp_d$revenu_mensuel, 2)
+ecrire("*Total mensuel des dépenses par rapport au revenu (alerte si le ratio dépasse 1 ou est inférieur à 0,10)*")
+tab(cmp_d)
+
+carb <- merge(depenses[depenses$poste == "Carburant", c("id_depense", "id_menage", "montant")],
+              men[, c("id_menage", "nb_vehicules")], by = "id_menage")
+ecrire("*Carburant déclaré par un ménage sans véhicule*")
+tab(carb[carb$nb_vehicules == 0, ])
+
+ali <- merge(depenses[tolower(depenses$poste) == "alimentation", c("id_depense", "id_menage", "mens")],
+             men[, c("id_menage", "taille_menage")], by = "id_menage")
+ali$alimentation_par_personne <- round(ali$mens / ali$taille_menage)
+ecrire("*Dépense alimentaire par personne et par mois*")
+tab(ali)
+
+ecrire(r"---(
+**Dépenses totales et revenu**
+
+- Comparer le total mensuel des dépenses du ménage à `revenu_mensuel`.
+- Alerte si le total dépasse nettement le revenu (rapport supérieur à 1) ou s'il en représente une part très faible (par exemple moins de 10 %).
+- Contrôle impossible si le revenu est manquant ou codé comme valeur manquante (999999).
+
+**Alimentation et taille du ménage**
+
+- Calculer la dépense alimentaire par personne (montant ÷ `taille_menage`).
+- Alerte si la valeur sort d'une fourchette plausible, ou si elle est très éloignée de la médiane des autres ménages.
+
+**Carburant et véhicules**
+
+- Alerte si une dépense de carburant ou d'entretien existe pour un ménage avec `nb_vehicules` = 0 (cas de D008, M002).
+- Alerte inverse à examiner : un ménage avec plusieurs véhicules sans aucune dépense de carburant ni de transport.
+
+**Transport et modes de transport**
+
+- Comparer le poste Transport avec les modes déclarés dans individus.csv (par exemple, un ménage qui ne déclare que la marche, mais a une forte dépense de transport).
+
+**Éducation et composition du ménage**
+
+- Alerte si une dépense d'éducation existe dans un ménage sans enfant d'âge scolaire (table INDIVIDUS).
+- Alerte inverse : plusieurs enfants scolarisés et aucune dépense d'éducation.
+
+**Santé et âge des membres**
+
+- Une dépense de santé élevée dans un ménage sans personne âgée ou malade déclarée est à examiner.
+
+**Logement et statut d'occupation**
+
+- Alerte si une dépense de loyer apparaît pour un ménage déclaré propriétaire ou hébergé gratuitement (si cette information est collectée).
+- Comparer le montant au niveau habituel de la commune ou du département.
+
+**Postes attendus selon le ménage**
+
+- Un ménage sans aucune dépense d'alimentation est suspect (tous les ménages mangent).
+- Au minimum un poste d'alimentation par ménage.
+
+**5. Absence d'un poste de dépense**
+
+Une ligne n'existe dans depenses.csv que si une dépense a été déclarée et saisie. L'absence d'un poste peut donc avoir plusieurs causes :
+
+- **Oubli ou refus** : le répondant n'a pas déclaré la dépense.
+- **Poste non posé ou sauté** par l'enquêteur.
+- **Poste non applicable** : par exemple, pas de loyer pour un ménage propriétaire ou hébergé gratuitement.
+- **Dépense en nature ou autoconsommation**, sans paiement en argent.
+- **Période de référence** : pas de dépense sur la période observée, alors qu'elle existe sur l'année.
+- **Erreur de saisie** : ligne perdue ou jamais encodée.
+
+Un vrai zéro doit être saisi explicitement (montant = 0) ; une absence reste une valeur manquante.
+
+**6. Procédure de résolution avec traçabilité**
+
+Résoudre les problèmes détectés tout en gardant une trace des modifications se fait en plusieurs étapes :
+
+1. **Figer l'original** : conserver depenses.csv et menages.csv en lecture seule (par exemple `depenses_brut_v0.csv`), sans jamais les modifier ;
+2. **Contrôler par script** : appliquer tous les contrôles avec un script reproductible, qui produit un rapport d'anomalies (identifiant, variable, valeur, règle violée) ;
+3. **Classer les anomalies** :
+    - erreurs certaines : doublon exact (D023/D024), faute de frappe (D012, D022), D015 dupliqué ;
+    - cas à vérifier à la source : D019, D021, D027, D009, D038 (M020), M010 ;
+4. **Vérifier à la source** : questionnaire papier, enquêteur ou retour terrain, avant toute décision ;
+5. **Corriger sans écraser** : appliquer les corrections dans une nouvelle version (`depenses_v1.csv`, `menages_v1.csv`) ;
+6. **Tenir un journal des modifications**, avec pour chaque correction : la date et l'auteur ; l'identifiant et la variable concernée ; l'ancienne et la nouvelle valeur ; le motif et la source de la décision ;
+7. **Signaler les valeurs corrigées ou imputées** dans une variable indicatrice, pour les distinguer des valeurs observées ;
+8. **Ne jamais réutiliser un identifiant** : pour D015, la ligne de M005 reçoit D016, et l'ancien identifiant reste mentionné dans le journal ;
+9. **Relancer les contrôles** sur la nouvelle version jusqu'à ce qu'il ne reste que des anomalies justifiées ;
+10. **Valider et archiver** : version finale approuvée, numérotée et datée, avec le journal et le script.
+)---")
+```
